@@ -24,11 +24,12 @@ int shortintcmp(const void *a, const void *b)
   short int *db = (const short int *) b;
   return (*da > *db) - (*da < *db);
   */
-  
+
   if (*((short int*)a) > *((short int*)b))
     return 1;
   else
     return -1;
+
 
 }
 
@@ -36,8 +37,7 @@ int rescale2(short int *datav, int ndata, int nbits, float *offset, float *scale
 {
 
     short int* datacopy;
-    float qlow, qhigh;
-    short int median,s1lo,s1hi;
+    float qlow, qhigh, median,s1lo,s1hi;
 
     datacopy = (short int *) malloc(ndata * sizeof(short int));
     if (!datacopy) {
@@ -50,14 +50,14 @@ int rescale2(short int *datav, int ndata, int nbits, float *offset, float *scale
     qsort(datacopy, ndata, sizeof(datav[0]), shortintcmp);
 
     /* Now calculate median and percentiles */
-    median = datacopy[(int) (0.5 * ndata)];     // Ignore odd-even issue
-    s1lo = datacopy[(int) (0.1587 * ndata)];    // since we're approximating
-    s1hi = datacopy[(int) (0.8413 * ndata)];    // percentiles anyway.
+    median = (float) datacopy[(int) (0.5 * ndata)];     // Ignore odd-even issue
+    s1lo = (float) datacopy[(int) (0.1587 * ndata)];    // since we're approximating
+    s1hi = (float) datacopy[(int) (0.8413 * ndata)];    // percentiles anyway.
 
-    qlow = (float)median - LSIGMA * (float)(median - s1lo);
+    qlow = median - LSIGMA * (median - s1lo);
     qlow = (qlow < (float)datacopy[0]) ? (float)datacopy[0] : qlow;
 
-    qhigh = (float)median + USIGMA * (float)(s1hi - median);
+    qhigh = median + USIGMA * (s1hi - median);
     qhigh = (qhigh > (float)datacopy[ndata - 1]) ? (float)datacopy[ndata - 1] : qhigh;
 
 #if(VERBOSE)
