@@ -1,5 +1,5 @@
 # Other include directory (for CFITSIO, libsla, which is in PRESTO)
-OTHERINCLUDE = -I/usr/include/cfitsio #-I/home.local/phil/svn/pdev/include
+OTHERINCLUDE = -I/usr/include/libcfitsio0 #-I/home.local/phil/svn/pdev/include
 # Other link directory (for CFITSIO)
 OTHERLINK = -L/usr/lib64 -lcfitsio #-L/home.local/phil/svn/pdev/libs 
 

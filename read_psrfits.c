@@ -270,6 +270,8 @@ int psrfits_read_subint(struct psrfits *pf, int first)
         fits_read_col(pf->fptr, TSHORT, pcol->stat, row, firstE,
                       (LONGLONG) (sub->statbytes_per_subint) / sizeof(short), NULL,
                       sub->stat, NULL, status);
+
+	
     } else if (mode == FOLD_MODE) {
         fits_read_col(pf->fptr, sub->typecode, pcol->data, row, firstE,
                       (LONGLONG) (sub->bytes_per_subint) / sub->bytesPerDatum, NULL,

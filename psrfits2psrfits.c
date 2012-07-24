@@ -23,7 +23,7 @@
 
  int main(int argc, char *argv[])
  {
-     int numfiles, ii, numrows, rownum, ichan, itsamp, datidx;
+     int numfiles, ii, jj, numrows, rownum, ichan, itsamp, datidx;
      int spec_per_row, status, maxrows, tmp;
      unsigned long int maxfilesize;
      float datum, packdatum, maxval, fulltsubint;
@@ -33,7 +33,7 @@
      struct psrfits pfin, pfout;
      Cmdline *cmd;
      fitsfile *infits, *outfits;
-     char outfilename[128], templatename[128], tformstring[16], tdim[16], tunit[16];
+     char outfilename[128], templatename[128], tformstring[16], tdim[16], tunit[16], firstfilenum[16];
      char *pc1, *pc2, *ibeam;
      int first = 1, dummy = 0; //, nclipped;
      short int *inrowdata;
@@ -89,6 +89,13 @@
 	 pc1++;                  // we were sitting on "." move to first digit
 	 pfin.filenum = atoi(pc1);
 	 pfin.fnamedigits = pc2 - pc1;   // how many digits in filenumbering scheme.
+	 //If 1st file, save the number for naming the template 
+	 if (ii == 0) {
+	   strncpy(firstfilenum,pc1,pfin.fnamedigits);
+	   sprintf(templatename, "%s.%s.template.fits",cmd->outfile,firstfilenum);
+	   //fprintf(stderr, "firstfilenum: %s templatename: %s\n",firstfilenum, templatename);
+	 }
+
 	 *pc1 = 0;               // null terminate the basefilename
 	 strcpy(pfin.basefilename, cmd->argv[ii]);
 	 pfin.initialized = 0;   // set to 1 in  psrfits_open()
@@ -130,7 +137,6 @@
 	 pfin.tot_rows = dummy;
 	 numrows = dummy;
 
-	 sprintf(templatename, "%s.template.fits",cmd->outfile);
 
 	 //If dealing with 1st input file, check if a template exists,
 	 //and create one if it doesn't. 
@@ -141,8 +147,7 @@
 	     fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &status);
 	     fits_read_key(outfits, TINT, "NAXIS1", &dummy, NULL, &status);
 	     fits_close_file(outfits, &status);  
-	   }
-	   else {
+	   } else {
 	     status = 0; //fits_create_file fails if this is not set to zero
 	     fits_create_file(&outfits, templatename, &status);
 
@@ -174,7 +179,7 @@
 	     fits_read_key(outfits, TSTRING, "TUNIT17", tunit, NULL, &status);
 	     fits_delete_col(outfits, 17, &status);
 	     //fprintf(stderr,"after fits_delete_col, status: %d\n", status);
-	     //fits_flush_buffer(outfits, 0, &status);
+	     fits_flush_buffer(outfits, 0, &status);
 
 	     //Edit the TFORM17 column: # of data bytes per row 
 	     //fits_get_colnum(outfits,1,"DATA",&dummy,&status);
@@ -186,7 +191,7 @@
 	     //fprintf(stderr,"pfin.hdr.nsblk: %d pfin.hdr.nchan: %d pfin.hdr.npol: %d cmd->numbit: %d tformstring: %s\n", pfin.hdr.nsblk, pfin.hdr.nchan, pfin.hdr.npol, cmd->numbits, tformstring);
 	     fits_insert_col(outfits, 17, "DATA", tformstring, &status);
 	     //fprintf(stderr,"after fits_insert_col, status: %d\n", status);
-	     //fits_flush_buffer(outfits, 0, &status);
+	     fits_flush_buffer(outfits, 0, &status);
 
 	     fits_update_key(outfits, TSTRING, "TDIM17", tdim, NULL, &status);
 	     //fprintf(stderr,"after fits_update_key, status: %d\n", status);
@@ -210,6 +215,16 @@
 	       fprintf(stderr, "End of template construction: %s",ctime(&t2));
 	     }
 	   }
+
+	   //fprintf(stderr,"pfin.subint.statbytes_per_subint: %d\n",pfin.sub.statbytes_per_subint );
+	   
+	   /*
+	   for(jj=0; jj<pfin.sub.statbytes_per_subint/2; jj++)
+	     {
+	       fprintf(stderr,"pfin.subint.stat[%d]: %u\n",jj,pfin.sub.stat[jj]);
+	     }
+	   */
+	   //exit(1);
 
 	   //Set the max # of rows per file, based on the requested 
 	   //output file size
