@@ -74,14 +74,16 @@ int psrfits_open(struct psrfits *pf, int iomode)
 
     fits_read_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
-    // Move to pdev bintab to see if blanking enabled
-    //
-    int blankSel, adcThr;
-    fits_movnam_hdu(pf->fptr, BINARY_TBL, "PDEV", 0, status);
-    fits_read_key(pf->fptr, TINT, "PHBLKSEL", &(blankSel), NULL, status);
-    fits_read_key(pf->fptr, TINT, "PHADCTHR", &(adcThr), NULL, status);
-    fits_read_key(pf->fptr, TINT, "PHFFTACC", &(hdr->fftAccum), NULL, status);
-    hdr->blankingOn = (blankSel != 15) || (adcThr != 65535);
+    if(strcmp(pf->hdr.backend,"PUPPI") != 0) {
+      // Move to pdev bintab to see if blanking enabled
+      //
+      int blankSel, adcThr;
+      fits_movnam_hdu(pf->fptr, BINARY_TBL, "PDEV", 0, status);
+      fits_read_key(pf->fptr, TINT, "PHBLKSEL", &(blankSel), NULL, status);
+      fits_read_key(pf->fptr, TINT, "PHADCTHR", &(adcThr), NULL, status);
+      fits_read_key(pf->fptr, TINT, "PHFFTACC", &(hdr->fftAccum), NULL, status);
+      hdr->blankingOn = (blankSel != 15) || (adcThr != 65535);
+    }
 
     // Move to first subint
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
@@ -132,7 +134,9 @@ int psrfits_open(struct psrfits *pf, int iomode)
         fits_get_colnum(pf->fptr, 1, "DAT_OFFS", &pf->subcols.dat_offs, status);
         fits_get_colnum(pf->fptr, 1, "DAT_SCL", &pf->subcols.dat_scl, status);
         fits_get_colnum(pf->fptr, 1, "DATA", &pf->subcols.data, status);
-        fits_get_colnum(pf->fptr, 1, "STAT", &pf->subcols.stat, status);
+
+	if(strcmp(pf->hdr.backend,"PUPPI") != 0)
+	  fits_get_colnum(pf->fptr, 1, "STAT", &pf->subcols.stat, status);
 
         long repeat;
         long width;
@@ -267,16 +271,19 @@ int psrfits_read_subint(struct psrfits *pf, int first)
             exit(-1);
             break;
         }
-        fits_read_col(pf->fptr, TSHORT, pcol->stat, row, firstE,
-                      (LONGLONG) (sub->statbytes_per_subint) / sizeof(short), NULL,
-                      sub->stat, NULL, status);
 
+	if(strcmp(pf->hdr.backend,"PUPPI") != 0)
+	  fits_read_col(pf->fptr, TSHORT, pcol->stat, row, firstE,
+			(LONGLONG) (sub->statbytes_per_subint) / sizeof(short), NULL,
+			sub->stat, NULL, status);
+	
 	
     } else if (mode == FOLD_MODE) {
         fits_read_col(pf->fptr, sub->typecode, pcol->data, row, firstE,
                       (LONGLONG) (sub->bytes_per_subint) / sub->bytesPerDatum, NULL,
                       sub->data, NULL, status);
     }
+
     // Complain on error
     fits_report_error(stderr, *status);
 

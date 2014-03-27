@@ -1,19 +1,21 @@
 # Other include directory (for CFITSIO, libsla, which is in PRESTO)
-OTHERINCLUDE = -I/usr/include/cfitsio #-I/home.local/phil/svn/pdev/include
+OTHERINCLUDE = -I/usr/include/cfitsio 
+#OTHERINCLUDE = -I/data/home/phil/pks/linux64/include/cfitsio
+#OTHERINCLUDE = /home.local/phil/svn/pdev/include
 # Other link directory (for CFITSIO)
 OTHERLINK = -L/usr/lib64 -lcfitsio #-L/home.local/phil/svn/pdev/libs 
 
 # Source directory
 SRCDIR = $(shell pwd)
 
-BINDIR = /home/deneva/bin64
-#BINDIR = .
+#BINDIR = /home/deneva/bin64
+BINDIR = .
 
 # Which C compiler
 CC = gcc
 CFLAGS = $(OTHERINCLUDE) -DSRCDIR=\"$(SRCDIR)\"\
 	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64\
-	-g -Wall -W -O1 \
+	-g -Wall -W -O1
 #-fthread-jumps \
 #-fcrossjumping \
 #-foptimize-sibling-calls \

@@ -11,11 +11,13 @@ static char rcsid[] = "$Id: rescale.c,v 1.5 2009/11/25 05:40:49 shami Exp $";
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <time.h>
 
 #define USIGMA 3.5
 #define LSIGMA 2.5
 
 #define VERBOSE 0
+#define MINNSAMP 1024
 
 int shortintcmp(const void *a, const void *b)
 {
@@ -29,8 +31,6 @@ int shortintcmp(const void *a, const void *b)
     return 1;
   else
     return -1;
-
-
 }
 
 int rescale2(short int *datav, int ndata, int nbits, float *offset, float *scale)
@@ -39,14 +39,33 @@ int rescale2(short int *datav, int ndata, int nbits, float *offset, float *scale
     short int* datacopy;
     float qlow, qhigh, median,s1lo,s1hi;
 
-    datacopy = (short int *) malloc(ndata * sizeof(short int));
-    if (!datacopy) {
+    int nthsamp, ii;
+
+    nthsamp = ndata/MINNSAMP;
+
+    //qsort takes a long time if there are a lot of samples per row, so use
+    //every Nth sample instead to calculate median
+    if(nthsamp == 0) { //less than MINNSAMP in row, use them all
+      datacopy = (short int *) malloc(ndata * sizeof(short int));
+      if (!datacopy) {
         /* malloc apparently failed */
         printf("Error! malloc failed?\n");
         return (-1);
+      }
+      memcpy(datacopy, datav, ndata * sizeof(short int));
+      
+    } else { //use every Nth sample, for a minimum of MINNSAMP 
+      ndata = MINNSAMP;
+      datacopy = (short int *) malloc(ndata * sizeof(short int));
+      if (!datacopy) {
+        /* malloc apparently failed */
+        printf("Error! malloc failed?\n");
+        return (-1);
+      }
+      for(ii=0; ii<MINNSAMP; ii++)
+	datacopy[ii] = datav[ii*nthsamp];
     }
 
-    memcpy(datacopy, datav, ndata * sizeof(short int));
     qsort(datacopy, ndata, sizeof(datav[0]), shortintcmp);
 
     /* Now calculate median and percentiles */

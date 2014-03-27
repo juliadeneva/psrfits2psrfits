@@ -36,13 +36,12 @@
      char outfilename[128], templatename[128], tformstring[16], tdim[16], tunit[16], firstfilenum[16];
      char *pc1, *pc2, *ibeam;
      int first = 1, dummy = 0; //, nclipped;
-     short int *inrowdata;
+     short int *inrowdata16;
      time_t t0, t1, t2;
-     unsigned char* outrowdata;
+     unsigned char* outrowdata, *inrowdata8;
 
      if (DOTIME) {
-       t0 = time(NULL);
-       fprintf(stderr, "Program start: %s",ctime(&t0));
+       time(&t0);
      }
 
 
@@ -93,7 +92,6 @@
 	 if (ii == 0) {
 	   strncpy(firstfilenum,pc1,pfin.fnamedigits);
 	   sprintf(templatename, "%s.%s.template.fits",cmd->outfile,firstfilenum);
-	   //fprintf(stderr, "firstfilenum: %s templatename: %s\n",firstfilenum, templatename);
 	 }
 
 	 *pc1 = 0;               // null terminate the basefilename
@@ -102,18 +100,23 @@
 	 pfin.status = 0;
 	 //(end of code taken from psrfits2fil)
 
-	 //Get the beam number from the file name
-	 ibeam = strrchr(cmd->argv[ii], 'b');
-	 ibeam = ibeam+1;
-	 *(ibeam+1) = 0;  //terminate string
-	 //fprintf(stderr,"ibeam: %s\n", ibeam);
-
 	 //Open the existing psrfits file
 	 if (psrfits_open(&pfin, READONLY) != 0) {
 	     fprintf(stderr, "error opening file\n");
 	     fits_report_error(stderr, pfin.status);
 	     exit(1);
 	 }
+
+	 fprintf(stderr,"Input file is from %s\n",pfin.hdr.backend);
+
+	 if(strcmp(pfin.hdr.backend,"PUPPI") != 0) {
+	   //Get the beam number from the file name
+	   ibeam = strrchr(cmd->argv[ii], 'b');
+	   ibeam = ibeam+1;
+	   *(ibeam+1) = 0;  //terminate string
+	   //fprintf(stderr,"ibeam: %s\n", ibeam);
+	 }
+
 	 // Create the subint arrays
 	 if (first) {
 	     pfin.sub.dat_freqs = (float *) malloc(sizeof(float) * pfin.hdr.nchan);
@@ -125,8 +128,8 @@
 	     //first is set to 0 after data buffer allocation further below
 
 	     if (DOTIME) {
-	       t1 = time(NULL);
-	       fprintf(stderr, "End of initialization: %s",ctime(&t1));
+	       time(&t1);
+	       fprintf(stderr, "Initialization took: %.0f s\n",difftime(t1,t0));
 	     }
 	 }
 
@@ -204,15 +207,17 @@
 	     //Need this to set the max. # of rows in output
 	     fits_read_key(outfits, TINT, "NAXIS1", &dummy, NULL, &status);
 
-	     //Add key for beam number
-	     fits_movabs_hdu(outfits, 1, NULL, &status);
-	     fits_update_key(outfits, TSTRING, "IBEAM", ibeam, "Beam number for multibeam systems", &status);
+	     if(strcmp(pfin.hdr.backend,"PUPPI") != 0) {
+	       //Add key for beam number
+	       fits_movabs_hdu(outfits, 1, NULL, &status);
+	       fits_update_key(outfits, TSTRING, "IBEAM", ibeam, "Beam number for multibeam systems", &status);
+	     }
 
 	     fits_close_file(outfits, &status);  
 
 	     if (DOTIME) {
-	       t2 = time(NULL);
-	       fprintf(stderr, "End of template construction: %s",ctime(&t2));
+	       time(&t2);
+	       fprintf(stderr, "Template construction took %.0f s\n",difftime(t2,t1));
 	     }
 	   }
 
@@ -307,36 +312,52 @@
             pfout.sub.FITS_typecode = TBYTE;
 
             if (first) {
-                //Allocate scaling buffer and output buffer
-                datachunks = malloc(pfout.hdr.nchan * pfout.hdr.npol * sizeof(short int*));
-		for (ichan=0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) 
-		  datachunks[ichan] = malloc(spec_per_row * sizeof(short int));
-
-		scales = gen_fvect(pfout.hdr.nchan);
-		offsets = gen_fvect(pfout.hdr.nchan);
-                outrowdata = gen_bvect(pfout.sub.bytes_per_subint);
-                first = 0;
-            }
-	    //fprintf(stderr, "pfout.sub.bytes_per_subint: %d\n",pfout.sub.bytes_per_subint);
+	      
+	      //Allocate scaling buffer and output buffer
+	      datachunks = malloc(pfout.hdr.nchan * pfout.hdr.npol * sizeof(short int*));
+	      for (ichan=0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) 
+		datachunks[ichan] = malloc(spec_per_row * sizeof(short int));
+	      
+	      scales = gen_fvect(pfout.hdr.nchan);
+	      offsets = gen_fvect(pfout.hdr.nchan);
+	      outrowdata = gen_bvect(pfout.sub.bytes_per_subint);
+	      first = 0;
+	    }
+	    
 	    pfout.sub.data = outrowdata;
-            inrowdata = (short int *) pfin.sub.data;
-            //nclipped = 0;
+
+	    if(pfin.hdr.nbits == 8) 
+	      inrowdata8 = (unsigned char*) pfin.sub.data;
+	    else if(pfin.hdr.nbits == 16) 
+	      inrowdata16 = (short int *) pfin.sub.data;
+	    else {
+	      fprintf(stderr,"Unrecognized NBITS in input fits file: %d\n",pfin.hdr.nbits);
+	      exit(1);
+	    }
+	      
 
 	    if (DOTIME) {
-	      t1 = time(NULL);
-	      fprintf(stderr,"Start of row conversion: %s",ctime(&t1));
+	      time(&t1);
 	    }
 
-	    
 	    // Populate datachunks[] by picking out all time samples for ichan
-	    for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
-	      for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
-		datachunks[ichan][itsamp] = inrowdata[ichan + itsamp * pfout.hdr.nchan * pfout.hdr.npol];
+	    if(pfin.hdr.nbits == 8) 
+	      for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
+		  datachunks[ichan][itsamp] = (short int)inrowdata8[ichan + itsamp * pfout.hdr.nchan * pfout.hdr.npol];
+		}
 	      }
-	    }
+
+	    else
+	      for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
+		  datachunks[ichan][itsamp] = inrowdata16[ichan + itsamp * pfout.hdr.nchan * pfout.hdr.npol];
+		}
+	      }
 
 	    
             // Loop over all the channels:
+	    //time(&t1);
             for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
 	      // Compute the statistics here, and put the offsets and scales in
 	      // pf.sub.dat_offsets[] and pf.sub.dat_scales[]
@@ -345,58 +366,105 @@
 		  printf("Rescale routine failed!\n");
 		  return (-1);
                 }
+	      
+	    }
+	    //time(&t2);
+	    //fprintf(stderr,"Rescale loop took %.0f s\n",difftime(t2,t1));
+
+
+	    if(pfin.hdr.nbits == 8) {
+	      // Since we have the offset and scale ready, rescale the data:
+	      for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
+		  datum = (pfout.sub.dat_scales[ichan] == 0.0) ? 0.0 : roundf(((float)datachunks[ichan][itsamp] - pfout.sub.dat_offsets[ichan]) / pfout.sub.dat_scales[ichan]);
+		
+		  if (datum < 0.0) {
+		    datum = 0.0;
+		    //nclipped++;
+		  } else if (datum > maxval) {
+		    datum = maxval;
+		    //nclipped++;
+		  }
+		  inrowdata8[ichan + itsamp * pfout.hdr.nchan * pfout.hdr.npol] = (unsigned char)datum;
+		} //end loop over ichan
+	      } //end loop over itsamp
+	    }
+	    else {
+	      // Since we have the offset and scale ready, rescale the data:
+	      for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
+		  datum = (pfout.sub.dat_scales[ichan] == 0.0) ? 0.0 : roundf(((float)datachunks[ichan][itsamp] - pfout.sub.dat_offsets[ichan]) / pfout.sub.dat_scales[ichan]);
+				
+		  if (datum < 0.0) {
+		    datum = 0.0;
+		    //nclipped++;
+		  } else if (datum > maxval) {
+		    datum = maxval;
+		    //nclipped++;
+		  }				
+		  inrowdata16[ichan + itsamp * pfout.hdr.nchan * pfout.hdr.npol] = (short int) datum;
+		} //end loop over ichan
+	      } //end loop over itsamp
 	    }
 
-	    // Since we have the offset and scale ready, rescale the data:
-	    for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
-	      for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++) {
-		datum = (pfout.sub.dat_scales[ichan] == 0.0) ? 0.0 : roundf(((float)datachunks[ichan][itsamp] - pfout.sub.dat_offsets[ichan]) / pfout.sub.dat_scales[ichan]);
-				
-		if (datum < 0.0) {
-		  datum = 0.0;
-		  //nclipped++;
-		} else if (datum > maxval) {
-		  datum = maxval;
-		  //nclipped++;
-		}
-		
-
-		inrowdata[ichan + itsamp * pfout.hdr.nchan * pfout.hdr.npol] = (short int) datum;
-		
-	      } //end loop over ichan
-	    } //end loop over itsamp
-	    
             // Then do the conversion and store the
             // results in pf.sub.data[] 
 
-	    if (cmd->numbits == 8 || DEBUG) {
-	      for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
-		datidx = itsamp * pfout.hdr.nchan * pfout.hdr.npol;
-		for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol;
-		     ichan++, datidx++) {
-		  pfout.sub.data[datidx] = (unsigned char) inrowdata[datidx];
+	    if(pfin.hdr.nbits == 8) {
+	      if (cmd->numbits == 8 || DEBUG) {
+		for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		  datidx = itsamp * pfout.hdr.nchan * pfout.hdr.npol;
+		  for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol;
+		       ichan++, datidx++) {
+		    pfout.sub.data[datidx] = (unsigned char)inrowdata8[datidx];
+		  }
 		}
-	      }
-	    } else if (cmd->numbits == 4) {
-	      for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
-		datidx = itsamp * pfout.hdr.nchan * pfout.hdr.npol;
-		for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol;
-		     ichan += 2, datidx += 2) {
-		  
-		  //packdatum = inrowdata[datidx] * 16 + inrowdata[datidx + 1];
-		  packdatum = (inrowdata[datidx] << 4) | inrowdata[datidx + 1];
-		  pfout.sub.data[datidx / 2] = (unsigned char) packdatum;
+	      } else if (cmd->numbits == 4) {
+		for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		  datidx = itsamp * pfout.hdr.nchan * pfout.hdr.npol;
+		  for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol;
+		       ichan += 2, datidx += 2) {
+		    //packdatum = inrowdata16[datidx] * 16 + inrowdata16[datidx + 1];
+		    packdatum = (inrowdata8[datidx] << 4) | inrowdata8[datidx + 1];
+		    pfout.sub.data[datidx / 2] = (unsigned char) packdatum;
+		  }
 		}
+	      } else {
+		fprintf(stderr, "Only 4 or 8-bit output formats supported.\n");
+		fprintf(stderr, "Bits per sample requested: %d\n", cmd->numbits);
+		exit(1);
 	      }
-	    } else {
-	      fprintf(stderr, "Only 4 or 8-bit output formats supported.\n");
-	      fprintf(stderr, "Bits per sample requested: %d\n", cmd->numbits);
-	      exit(1);
+	    }
+	    else {
+	      if (cmd->numbits == 8 || DEBUG) {
+		for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		  datidx = itsamp * pfout.hdr.nchan * pfout.hdr.npol;
+		  for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol;
+		       ichan++, datidx++) {
+		    pfout.sub.data[datidx] = (unsigned char)inrowdata16[datidx];
+		  }
+		}
+	      } else if (cmd->numbits == 4) {
+		for (itsamp = 0; itsamp < spec_per_row; itsamp++) {
+		  datidx = itsamp * pfout.hdr.nchan * pfout.hdr.npol;
+		  for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol;
+		       ichan += 2, datidx += 2) {
+
+		    //packdatum = inrowdata16[datidx] * 16 + inrowdata16[datidx + 1];
+		    packdatum = (inrowdata16[datidx] << 4) | inrowdata16[datidx + 1];
+		    pfout.sub.data[datidx / 2] = (unsigned char) packdatum;
+		  }
+		}
+	      } else {
+		fprintf(stderr, "Only 4 or 8-bit output formats supported.\n");
+		fprintf(stderr, "Bits per sample requested: %d\n", cmd->numbits);
+		exit(1);
+	      }
 	    }
 	    
 	    if (DOTIME) {
-	      t2 = time(NULL);
-	      fprintf(stderr, "End of row conversion: %s",ctime(&t2));
+	      t2 = time(&t2);
+	      fprintf(stderr, "Row conversion took %.0f s",difftime(t2,t1));
 	    }
 
             // Now write the row. 
@@ -409,36 +477,34 @@
 	    //If current output file has reached the max # of rows, close it
 	    if (pfout.rownum == maxrows)
 	      fits_close_file(outfits, &status);
-
-	    
-	    if (DOTIME) {
-	      t1 = time(NULL);
-	      fprintf(stderr, "End of row writing: %s",ctime(&t1));
-	    }
-
         }
 
-        //Close the files 
-        fits_close_file(infits, &status);
-    }
-
+	 //Close the files
+	 fits_close_file(infits, &status);
+     }
+    
     fits_close_file(outfits, &status);
-
+    
     // Free the structure arrays too...
     for (ichan = 0; ichan < pfout.hdr.nchan * pfout.hdr.npol; ichan++)
       free(datachunks[ichan]);
     free(datachunks);
 
     free(infiles);
-
     free(pfin.sub.dat_freqs);
     free(pfin.sub.dat_weights);
     free(pfin.sub.dat_offsets);
     free(pfin.sub.dat_scales);
-
     free(pfin.sub.data);
     free(pfout.sub.data);
-    free(pfin.sub.stat);
+
+    if(strcmp(pfin.hdr.backend,"PUPPI") != 0) 
+      free(pfin.sub.stat);
+
+    if (DOTIME) {
+      time(&t1);
+      fprintf(stderr, "\nProgram took %.0f s / %.2f min / %.2f h\n",difftime(t1,t0),difftime(t1,t0)/60.0,difftime(t1,t0)/3600.0);
+    }
 
     return 0;
 }

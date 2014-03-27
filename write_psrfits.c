@@ -338,7 +338,8 @@ int psrfits_write_subint(struct psrfits *pf)
        fprintf(stderr,"In psrfits write after 17 column, NAXIS2: %d status; %d\n",dummy,*status);
      */
 
-    fits_write_col(pf->fptr, TSHORT, 18, row, 1, nstat, sub->stat, status);
+    if(strcmp(pf->hdr.backend,"PUPPI") != 0) 
+      fits_write_col(pf->fptr, TSHORT, 18, row, 1, nstat, sub->stat, status);
 
         // Flush the buffers if not finished with the file
     // Note:  this use is not entirely in keeping with the CFITSIO
