@@ -33,39 +33,66 @@ int shortintcmp(const void *a, const void *b)
     return -1;
 }
 
+void minmax(short int* a, int n, short int* amin, short int* amax)
+{
+  int ii;
+  *amin = a[0];
+  *amax = a[0];
+
+  for(ii=1; ii<n; ii++) {
+    if(a[ii] > *amax)
+      *amax = a[ii];
+    else if(a[ii] < *amin)
+      *amin = a[ii];
+  }
+}
+
 int rescale2(short int *datav, int ndata, int nbits, float *offset, float *scale)
 {
-
-    short int* datacopy;
+    short int* datacopy, datamin, datamax, datacopymin, datacopymax;
     float qlow, qhigh, median,s1lo,s1hi;
 
-    int nthsamp, ii;
-
-    nthsamp = ndata/MINNSAMP;
-
+    int ii, dofull=0;
+ 
     //qsort takes a long time if there are a lot of samples per row, so use
-    //every Nth sample instead to calculate median
-    if(nthsamp == 0) { //less than MINNSAMP in row, use them all
+    //a random subset to find the median and cutoff percentiles instead
+    
+    if(ndata > MINNSAMP) { 
+      
+      minmax(datav,ndata,&datamin,&datamax);
+      //fprintf(stderr,"Full set: min = %d max = %d\n",datamin,datamax);
+
+      datacopy = (short int *) malloc(MINNSAMP * sizeof(short int));
+      if (!datacopy) {
+        printf("Error! malloc failed?\n");
+        return (-1);
+      }
+      for(ii=0; ii<MINNSAMP; ii++) 
+	datacopy[ii] = datav[(int)((float)rand()/(float)RAND_MAX*ndata)];
+      
+      minmax(datacopy,MINNSAMP,&datacopymin,&datacopymax);
+      //fprintf(stderr,"Subset: min = %d max = %d\n",datacopymin,datacopymax);
+      
+      if (datamax-datamin > 2*(datacopymax-datacopymin)) {
+	//printf("Defaulting to full sort.\n");
+	dofull = 1;
+	free(datacopy);
+      }
+    }
+
+    if(ndata <= MINNSAMP || dofull == 1) {
       datacopy = (short int *) malloc(ndata * sizeof(short int));
       if (!datacopy) {
-        /* malloc apparently failed */
-        printf("Error! malloc failed?\n");
+            printf("Error! malloc failed?\n");
         return (-1);
       }
       memcpy(datacopy, datav, ndata * sizeof(short int));
-      
-    } else { //use every Nth sample, for a minimum of MINNSAMP 
-      ndata = MINNSAMP;
-      datacopy = (short int *) malloc(ndata * sizeof(short int));
-      if (!datacopy) {
-        /* malloc apparently failed */
-        printf("Error! malloc failed?\n");
-        return (-1);
-      }
-      for(ii=0; ii<MINNSAMP; ii++)
-	datacopy[ii] = datav[ii*nthsamp];
     }
+    
+    if(ndata > MINNSAMP && dofull == 0)
+      ndata = MINNSAMP;
 
+    //printf("Before qsort, ndata: %d\n",ndata);
     qsort(datacopy, ndata, sizeof(datav[0]), shortintcmp);
 
     /* Now calculate median and percentiles */
