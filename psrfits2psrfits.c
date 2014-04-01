@@ -21,6 +21,8 @@
  #define GB 1073741824
  #define KB 1024
 
+int ndefaults = 0;
+
  int main(int argc, char *argv[])
  {
      int numfiles, ii, jj, numrows, rownum, ichan, itsamp, datidx;
@@ -109,7 +111,7 @@
 
 	 fprintf(stderr,"Input file is from %s\n",pfin.hdr.backend);
 
-	 if(strcmp(pfin.hdr.backend,"PUPPI") != 0) {
+	 if(strcmp(pfin.hdr.backend,"pdev") == 0) {
 	   //Get the beam number from the file name
 	   ibeam = strrchr(cmd->argv[ii], 'b');
 	   ibeam = ibeam+1;
@@ -207,7 +209,7 @@
 	     //Need this to set the max. # of rows in output
 	     fits_read_key(outfits, TINT, "NAXIS1", &dummy, NULL, &status);
 
-	     if(strcmp(pfin.hdr.backend,"PUPPI") != 0) {
+	     if(strcmp(pfin.hdr.backend,"pdev") == 0) {
 	       //Add key for beam number
 	       fits_movabs_hdu(outfits, 1, NULL, &status);
 	       fits_update_key(outfits, TSTRING, "IBEAM", ibeam, "Beam number for multibeam systems", &status);
@@ -464,7 +466,9 @@
 	    
 	    if (DOTIME) {
 	      t2 = time(&t2);
-	      fprintf(stderr, "Row conversion took %.0f s",difftime(t2,t1));
+	      fprintf(stderr, "Row conversion took %.0f s\n",difftime(t2,t1));
+	      fprintf(stderr, "Nch with outliers: %d\n",ndefaults);
+	      ndefaults = 0;
 	    }
 
             // Now write the row. 
@@ -498,7 +502,7 @@
     free(pfin.sub.data);
     free(pfout.sub.data);
 
-    if(strcmp(pfin.hdr.backend,"PUPPI") != 0) 
+    if(strcmp(pfin.hdr.backend,"pdev") == 0) 
       free(pfin.sub.stat);
 
     if (DOTIME) {

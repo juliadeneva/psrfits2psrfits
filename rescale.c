@@ -19,6 +19,8 @@ static char rcsid[] = "$Id: rescale.c,v 1.5 2009/11/25 05:40:49 shami Exp $";
 #define VERBOSE 0
 #define MINNSAMP 1024
 
+extern int ndefaults;
+
 int shortintcmp(const void *a, const void *b)
 {
   /*
@@ -73,10 +75,12 @@ int rescale2(short int *datav, int ndata, int nbits, float *offset, float *scale
       minmax(datacopy,MINNSAMP,&datacopymin,&datacopymax);
       //fprintf(stderr,"Subset: min = %d max = %d\n",datacopymin,datacopymax);
       
-      if (datamax-datamin > 2*(datacopymax-datacopymin)) {
+      if (datamax-datamin > 2.0*(datacopymax-datacopymin)) {
 	//printf("Defaulting to full sort.\n");
+	//printf("Data min, max: %d %d, Subset min, max: %d %d\n",datamin,datamax,datacopymin,datacopymax);
 	dofull = 1;
 	free(datacopy);
+	ndefaults++;
       }
     }
 

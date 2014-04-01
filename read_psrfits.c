@@ -74,7 +74,7 @@ int psrfits_open(struct psrfits *pf, int iomode)
 
     fits_read_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
-    if(strcmp(pf->hdr.backend,"PUPPI") != 0) {
+    if(strcmp(pf->hdr.backend,"pdev") == 0) {
       // Move to pdev bintab to see if blanking enabled
       //
       int blankSel, adcThr;
@@ -135,7 +135,7 @@ int psrfits_open(struct psrfits *pf, int iomode)
         fits_get_colnum(pf->fptr, 1, "DAT_SCL", &pf->subcols.dat_scl, status);
         fits_get_colnum(pf->fptr, 1, "DATA", &pf->subcols.data, status);
 
-	if(strcmp(pf->hdr.backend,"PUPPI") != 0)
+	if(strcmp(pf->hdr.backend,"pdev") == 0)
 	  fits_get_colnum(pf->fptr, 1, "STAT", &pf->subcols.stat, status);
 
         long repeat;
@@ -272,7 +272,7 @@ int psrfits_read_subint(struct psrfits *pf, int first)
             break;
         }
 
-	if(strcmp(pf->hdr.backend,"PUPPI") != 0)
+	if(strcmp(pf->hdr.backend,"pdev") == 0)
 	  fits_read_col(pf->fptr, TSHORT, pcol->stat, row, firstE,
 			(LONGLONG) (sub->statbytes_per_subint) / sizeof(short), NULL,
 			sub->stat, NULL, status);
