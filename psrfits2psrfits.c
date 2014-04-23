@@ -111,6 +111,11 @@ int ndefaults = 0;
 
 	 fprintf(stderr,"Input file is from %s\n",pfin.hdr.backend);
 
+	 if(pfin.hdr.nbits == cmd->numbits) {
+	   fprintf(stderr,"Input data: %d bits. Output requested: %d bits. Nothing to do.\n",pfin.hdr.nbits, cmd->numbits);
+	   exit(1);
+	 }
+
 	 if(strcmp(pfin.hdr.backend,"pdev") == 0) {
 	   //Get the beam number from the file name
 	   ibeam = strrchr(cmd->argv[ii], 'b');
