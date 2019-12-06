@@ -5,6 +5,7 @@ OTHERINCLUDE = -I/usr/include/cfitsio
 # Other link directory (for CFITSIO)
 OTHERLINK = -L/usr/lib64 -lcfitsio #-L/home.local/phil/svn/pdev/libs 
 
+
 # Source directory
 SRCDIR = $(shell pwd)
 

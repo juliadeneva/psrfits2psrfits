@@ -193,10 +193,13 @@ int ndefaults = 0;
 
 	     //Edit the TFORM17 column: # of data bytes per row 
 	     //fits_get_colnum(outfits,1,"DATA",&dummy,&status);
-	     if (cmd->numbits == 8 || DEBUG)
+	     if (cmd->numbits == 8 || DEBUG) {
 	       sprintf(tformstring, "%dB", pfin.hdr.nsblk * pfin.hdr.nchan * pfin.hdr.npol);
-	     else
+	       sprintf(tdim, "(1,%d,%d,%d)", pfin.hdr.nchan, pfin.hdr.npol, pfin.hdr.nsblk);
+	     } else {
 	       sprintf(tformstring, "%dB", pfin.hdr.nsblk * pfin.hdr.nchan * pfin.hdr.npol * cmd->numbits / 8);
+	       sprintf(tdim, "(1,%d,%d,%d)", pfin.hdr.nchan, pfin.hdr.npol, pfin.hdr.nsblk * cmd->numbits / 8);
+	     }
 
 	     //fprintf(stderr,"pfin.hdr.nsblk: %d pfin.hdr.nchan: %d pfin.hdr.npol: %d cmd->numbit: %d tformstring: %s\n", pfin.hdr.nsblk, pfin.hdr.nchan, pfin.hdr.npol, cmd->numbits, tformstring);
 	     fits_insert_col(outfits, 17, "DATA", tformstring, &status);
